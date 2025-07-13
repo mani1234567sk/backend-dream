@@ -13,7 +13,20 @@ exports.register = async (req, res) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'USER_EXISTS',
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'PASSWORD_TOO_SHORT',
+        message: 'Password must be at least 6 characters long'
+      });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -58,10 +71,21 @@ exports.register = async (req, res) => {
       // Don't fail registration if email fails
     }
 
-    res.status(201).json({ message: 'User created successfully' });
+    res.status(201).json({ 
+      success: true,
+      message: 'User created successfully',
+      user: {
+        email: user.email,
+        name: user.name
+      }
+    });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({
+      success: false,
+      error: 'SERVER_ERROR',
+      message: 'An error occurred during registration. Please try again.'
+    });
   }
 };
 

@@ -1,0 +1,52 @@
+{
+  "name": "football-booking-app",
+  "version": "1.0.0",
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "server": "node server/index.js"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.0.0",
+    "@react-native-async-storage/async-storage": "2.1.2",
+    "@react-native-picker/picker": "^2.11.1",
+    "@react-navigation/bottom-tabs": "^6.5.11",
+    "@react-navigation/native": "^6.1.9",
+    "@react-navigation/stack": "^6.3.20",
+    "axios": "^1.6.2",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "cores": "^0.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "expo": "^53.0.13",
+    "expo-document-picker": "~13.1.6",
+    "expo-image-picker": "~16.1.4",
+    "expo-splash-screen": "^0.30.9",
+    "expo-status-bar": "~2.2.3",
+    "express": "^4.21.2",
+    "http": "^0.0.1-security",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.17.0",
+    "mongoose": "^8.16.3",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1",
+    "react": "19.0.0",
+    "react-native": "0.79.4",
+    "react-native-elements": "^3.4.3",
+    "react-native-paper": "^5.11.6",
+    "react-native-ratings": "^8.1.0",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.1",
+    "react-native-vector-icons": "^10.0.3",
+    "resolve-from": "^5.0.0",
+    "typescript": "^5.3.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
+}

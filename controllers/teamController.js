@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 
 exports.getTeams = async (req, res) => {
   try {
-    const teams = await Team.find().select('-password');
+    const teams = await Team.find().populate('players', 'name').populate('currentLeague', 'name').select('-password');
     res.json(teams);
   } catch (error) {
     console.error('Error fetching teams:', error);
@@ -28,6 +28,28 @@ exports.createTeam = async (req, res) => {
     res.status(201).json({ message: 'Team created successfully', team });
   } catch (error) {
     console.error('Error creating team:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.updateTeam = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, captain, logo } = req.body;
+
+    const team = await Team.findByIdAndUpdate(
+      id,
+      { name, captain, logo },
+      { new: true }
+    ).populate('players', 'name').populate('currentLeague', 'name');
+
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+
+    res.json({ message: 'Team updated successfully', team });
+  } catch (error) {
+    console.error('Error updating team:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

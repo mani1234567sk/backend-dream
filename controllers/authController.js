@@ -129,10 +129,40 @@ exports.login = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find().populate('team', 'name').select('-password');
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, height, position, role, teamId } = req.body;
+
+    const updateData = {
+      name,
+      email,
+      height,
+      position,
+      role
+    };
+
+    if (teamId) {
+      updateData.team = teamId;
+    }
+
+    const user = await User.findByIdAndUpdate(id, updateData, { new: true }).populate('team');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'User updated successfully', user });
+  } catch (error) {
+    console.error('Error updating user:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

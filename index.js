@@ -27,7 +27,7 @@ const leagueRoutes = require('./routes/leagueRoutes');
 const newsRoutes = require('./routes/newsRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const matchRoutes = require('./routes/matchRoutes');
+const matchRoutes = require('./routes/matchroutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/teams', teamRoutes);
@@ -36,7 +36,7 @@ app.use('/api/leagues', leagueRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/matches', matchRoutes);
+app.use('/api/matches', matchroutes);
 
 // Initialize default admin user
 const User = require('./models/User');

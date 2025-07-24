@@ -46,7 +46,7 @@ app.use('/api/bookings', bookingRoutes);
 console.log('Booking routes registered');
 app.use('/api/admin', adminRoutes);
 console.log('Admin routes registered');
-app.use('/api/matches', matchroutes);
+app.use('/api/matches', matchRoutes);
 console.log('Match routes registered');
 
 // Add a test endpoint to verify server is working

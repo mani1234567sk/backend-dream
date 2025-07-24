@@ -5,6 +5,14 @@ const User = require('../models/User');
 exports.getMatches = async (req, res) => {
   try {
     console.log('Fetching matches from database...');
+    console.log('Match model:', Match); // Debug log
+    
+    // Check if Match model is properly loaded
+    if (!Match) {
+      console.error('Match model is not defined');
+      return res.status(500).json({ message: 'Match model not found' });
+    }
+    
     const matches = await Match.find()
       .populate('creator', 'name email')
       .populate('joinedPlayers.user', 'name email')
@@ -12,9 +20,12 @@ exports.getMatches = async (req, res) => {
       .select('-__v');
     
     console.log(`Found ${matches.length} matches`);
+    console.log('Sample match data:', matches[0]); // Debug log
     res.json(matches);
   } catch (error) {
     console.error('Error fetching matches:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Server error while fetching matches' });
   }
 };

@@ -32,7 +32,10 @@ exports.getMatches = async (req, res) => {
 
 exports.createMatch = async (req, res) => {
   try {
-    const { name, date, time, location, matchType, description, maxPlayers, maxTeams } = req.body;
+    console.log('Received match creation request:', req.body);
+    console.log('Request headers:', req.headers);
+    
+    const { name, date, time, location, matchType, description, maxPlayers } = req.body;
     const userId = req.user.userId;
 
     // Verify admin role (additional check)
@@ -40,28 +43,30 @@ exports.createMatch = async (req, res) => {
       return res.status(403).json({ message: 'Admin access required to create matches' });
     }
 
+    // Trim string values to avoid empty string issues
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    const trimmedLocation = typeof location === 'string' ? location.trim() : '';
+    const trimmedTime = typeof time === 'string' ? time.trim() : '';
+    const trimmedMatchType = typeof matchType === 'string' ? matchType.trim() : '';
+    const trimmedDescription = typeof description === 'string' ? description.trim() : '';
+
     // Validate required fields
-    if (!name || !date || !time || !location || !matchType) {
+    if (!trimmedName || !date || !trimmedTime || !trimmedLocation || !trimmedMatchType) {
+      console.log('Validation failed - missing fields:', {
+        name: trimmedName,
+        date,
+        time: trimmedTime,
+        location: trimmedLocation,
+        matchType: trimmedMatchType
+      });
       return res.status(400).json({ 
         message: 'Missing required fields: name, date, time, location, and matchType are required' 
       });
     }
 
     // Validate match type and set default max players if not provided
-    const matchTypeConfig = {
-      '5v5': 10,
-      '7v7': 14,
-      '11v11': 22
-    };
-
-    if (!matchTypeConfig[matchType]) {
-      return res.status(400).json({ 
-        message: 'Invalid match type. Must be 5v5, 7v7, or 11v11' 
-      });
-    }
-
-    // Use provided maxPlayers or default based on match type
-    const finalMaxPlayers = maxPlayers && Number(maxPlayers) > 0 ? Number(maxPlayers) : matchTypeConfig[matchType];
+    // Use provided maxPlayers or default to 22 if not specified
+    const finalMaxPlayers = maxPlayers && Number(maxPlayers) > 0 ? Number(maxPlayers) : 22;
 
     // Validate date
     const matchDate = new Date(date);
@@ -75,22 +80,33 @@ exports.createMatch = async (req, res) => {
 
     // Validate time format (HH:MM)
     const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (!timeRegex.test(time)) {
+    if (!timeRegex.test(trimmedTime)) {
       return res.status(400).json({ message: 'Invalid time format. Use HH:MM format' });
     }
 
-    const match = await Match.create({
-      name,
+    console.log('Creating match with data:', {
+      name: trimmedName,
       date: matchDate,
-      time,
-      location,
-      matchType,
+      time: trimmedTime,
+      location: trimmedLocation,
+      matchType: trimmedMatchType,
       maxPlayers: finalMaxPlayers,
-      maxTeams: maxTeams || null,
+      description: trimmedDescription
+    });
+
+    const match = await Match.create({
+      name: trimmedName,
+      date: matchDate,
+      time: trimmedTime,
+      location: trimmedLocation,
+      matchType: trimmedMatchType,
+      maxPlayers: finalMaxPlayers,
       creator: userId,
-      description: description || '',
+      description: trimmedDescription,
       joinedPlayers: []
     });
+
+    console.log('Match created successfully:', match);
 
     const populatedMatch = await Match.findById(match._id)
       .populate('creator', 'name email')
@@ -102,6 +118,7 @@ exports.createMatch = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating match:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Server error while creating match' });
   }
 };
@@ -208,14 +225,10 @@ exports.updateMatch = async (req, res) => {
     if (status) updateData.status = status;
 
     if (matchType) {
-      const matchTypeConfig = {
-        '5v5': 10,
-        '7v7': 14,
-        '11v11': 22
-      };
-      if (matchTypeConfig[matchType]) {
-        updateData.matchType = matchType;
-        updateData.maxPlayers = matchTypeConfig[matchType];
+      updateData.matchType = matchType;
+      // Only update maxPlayers if explicitly provided in the update
+      if (req.body.maxPlayers) {
+        updateData.maxPlayers = Number(req.body.maxPlayers);
       }
     }
 

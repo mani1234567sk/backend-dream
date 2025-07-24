@@ -20,4 +20,11 @@ const matchSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Match', matchSchema);
+// Add index for better query performance
+matchSchema.index({ date: 1, time: 1 });
+matchSchema.index({ creator: 1 });
+matchSchema.index({ status: 1 });
+
+const Match = mongoose.model('Match', matchSchema);
+
+module.exports = Match;

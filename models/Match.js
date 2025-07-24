@@ -5,7 +5,7 @@ const matchSchema = new mongoose.Schema({
   date: { type: Date, required: true },
   time: { type: String, required: true },
   location: { type: String, required: true },
-  matchType: { type: String, enum: ['5v5', '7v7', '11v11'], required: true },
+  matchType: { type: String, required: true },
   maxPlayers: { type: Number, required: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   joinedPlayers: [{

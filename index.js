@@ -27,7 +27,7 @@ const leagueRoutes = require('./routes/leagueRoutes');
 const newsRoutes = require('./routes/newsRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const matchRoutes = require('./routes/matchRoutes');
+const matchRoutes = require('./routes/matchroutes');
 
 // Debug: Log all routes being registered
 console.log('Registering routes...');
@@ -46,7 +46,7 @@ app.use('/api/bookings', bookingRoutes);
 console.log('Booking routes registered');
 app.use('/api/admin', adminRoutes);
 console.log('Admin routes registered');
-app.use('/api/matches', matchRoutes);
+app.use('/api/matches', matchroutes);
 console.log('Match routes registered');
 
 // Add a test endpoint to verify server is working

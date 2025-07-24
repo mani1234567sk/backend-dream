@@ -5,6 +5,7 @@ const { authenticateToken, isAdmin } = require('../middleware/authMiddleware');
 
 // Public route for getting matches (no auth required for viewing)
 router.get('/', matchController.getMatches);
+router.get('/all', matchController.getMatches); // Alternative endpoint
 router.post('/', authenticateToken, isAdmin, matchController.createMatch);
 router.post('/:id/join', authenticateToken, matchController.joinMatch);
 router.put('/:id', authenticateToken, isAdmin, matchController.updateMatch);

@@ -10,6 +10,56 @@ const isValidDate = (dateString) => {
   return date instanceof Date && !isNaN(date) && date.toISOString().startsWith(dateString.split('T')[0]);
 };
 
+exports.updateLeague = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, startDate, endDate, status } = req.body;
+    
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid league ID' });
+    }
+    
+    const league = await League.findById(id);
+    if (!league) {
+      return res.status(404).json({ message: 'League not found' });
+    }
+    
+    // Validate dates if provided
+    if (startDate && !isValidDate(startDate)) {
+      return res.status(400).json({ message: 'Invalid startDate format. Use ISO 8601 (e.g., YYYY-MM-DD)' });
+    }
+    
+    if (endDate && !isValidDate(endDate)) {
+      return res.status(400).json({ message: 'Invalid endDate format. Use ISO 8601 (e.g., YYYY-MM-DD)' });
+    }
+    
+    const start = startDate ? new Date(startDate) : league.startDate;
+    const end = endDate ? new Date(endDate) : league.endDate;
+    
+    if (end <= start) {
+      return res.status(400).json({ message: 'endDate must be after startDate' });
+    }
+    
+    const updatedLeague = await League.findByIdAndUpdate(
+      id,
+      {
+        name: name || league.name,
+        description: description !== undefined ? description : league.description,
+        startDate: start,
+        endDate: end,
+        status: status || league.status
+      },
+      { new: true }
+    );
+    
+    res.json({ message: 'League updated successfully', league: updatedLeague });
+  } catch (error) {
+    console.error('Error updating league:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
 exports.getLeagues = async (req, res) => {
   try {
     const leagues = await League.find()

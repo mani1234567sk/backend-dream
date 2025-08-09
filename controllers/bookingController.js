@@ -12,6 +12,22 @@ exports.createBooking = async (req, res) => {
       return res.status(404).json({ message: 'Ground not found' });
     }
 
+    // Check if the ground is already booked for the given date and time
+    const bookingDate = new Date(date);
+    const existingBooking = await Booking.findOne({
+      ground: groundId,
+      date: {
+        $gte: new Date(bookingDate.setHours(0, 0, 0, 0)),
+        $lt: new Date(bookingDate.setHours(23, 59, 59, 999))
+      },
+      time: time,
+      status: { $ne: 'cancelled' }
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ message: 'Already booked for this date and time' });
+    }
+
     const booking = await Booking.create({
       user: userId,
       ground: groundId,

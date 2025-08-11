@@ -108,6 +108,34 @@ exports.createLeague = async (req, res) => {
   }
 };
 
+exports.deleteLeague = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid league ID' });
+    }
+
+    const league = await League.findById(id);
+    if (!league) {
+      return res.status(404).json({ message: 'League not found' });
+    }
+
+    // Remove league reference from all teams
+    await Team.updateMany(
+      { currentLeague: id },
+      { $unset: { currentLeague: '' } }
+    );
+
+    await League.findByIdAndDelete(id);
+    
+    res.json({ message: 'League deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting league:', error);
+    res.status(500).json({ message: 'Failed to delete league' });
+  }
+};
+
 exports.joinLeague = async (req, res) => {
   try {
     const { id } = req.params;

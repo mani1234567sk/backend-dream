@@ -1,28 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Team = require('../models/Team');
-const authMiddleware = require('../middleware/authMiddleware');
+const authMiddleware = require('../middleware/auth');
 const { check, validationResult } = require('express-validator');
-const multer = require('multer');
-const path = require('path');
-
-// Configure multer for logo uploads
-const storage = multer.diskStorage({
-  destination: './uploads/team-logos/',
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-const upload = multer({ 
-  storage,
-  fileFilter: (req, file, cb) => {
-    const filetypes = /jpeg|jpg|png/;
-    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = filetypes.test(file.mimetype);
-    if (extname && mimetype) return cb(null, true);
-    cb('Error: Images only!');
-  }
-});
 
 // List all teams with populated fields
 router.get('/', authMiddleware, async (req, res) => {
@@ -41,10 +21,10 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', 
   [
     authMiddleware,
-    upload.single('logo'),
     check('name', 'Name is required').not().isEmpty(),
     check('password', 'Password is required').isLength({ min: 6 }),
-    check('captain', 'Captain is required').isMongoId()
+    check('captain', 'Captain is required').isMongoId(),
+    check('logo', 'Logo must be a valid URL').optional().isURL()
   ], 
   async (req, res) => {
     const errors = validationResult(req);
@@ -57,7 +37,7 @@ router.post('/',
         name: req.body.name,
         captain: req.body.captain,
         password: req.body.password,
-        logo: req.file ? req.file.path : req.body.logo || '',
+        logo: req.body.logo || '',
         players: req.body.players ? JSON.parse(req.body.players) : [],
         currentLeague: req.body.currentLeague || null,
         matchesPlayed: parseInt(req.body.matchesPlayed) || 0,
@@ -83,9 +63,10 @@ router.post('/',
 router.put('/:id', 
   [
     authMiddleware,
-    upload.single('logo'),
     check('name', 'Name is required').optional().not().isEmpty(),
-    check('password', 'Password must be at least 6 characters').optional().isLength({ min: 6 })
+    check('password', 'Password must be at least 6 characters').optional().isLength({ min: 6 }),
+    check('captain', 'Captain must be a valid MongoDB ID').optional().isMongoId(),
+    check('logo', 'Logo must be a valid URL').optional().isURL()
   ], 
   async (req, res) => {
     const errors = validationResult(req);
@@ -98,7 +79,7 @@ router.put('/:id',
         name: req.body.name,
         captain: req.body.captain,
         ...(req.body.password && { password: req.body.password }),
-        logo: req.file ? req.file.path : req.body.logo,
+        logo: req.body.logo,
         players: req.body.players ? JSON.parse(req.body.players) : undefined,
         currentLeague: req.body.currentLeague || undefined,
         matchesPlayed: req.body.matchesPlayed ? parseInt(req.body.matchesPlayed) : undefined,
@@ -140,4 +121,3 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

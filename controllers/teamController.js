@@ -45,7 +45,7 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: 'Team name cannot be empty' });
     }
     
-    // Ensure teamName is properly mapped to name field for MongoDB
+    // Ensure teamName is properly mapped to teamName field for MongoDB
     const teamName = trimmedName;
     
     // Check for duplicate team names with proper normalization
@@ -63,10 +63,10 @@ exports.createTeam = async (req, res) => {
     // Log all existing team names and their normalized versions for debugging
     console.log('All existing teams:');
     existingTeams.forEach(team => {
-      const normalizedExistingName = normalizeTeamName(team.name);
+      const normalizedExistingName = normalizeTeamName(team.teamName);
       console.log({
         id: team._id,
-        originalName: team.name,
+        originalName: team.teamName,
         normalizedName: normalizedExistingName,
         matches: normalizedExistingName === normalizedNewName
       });
@@ -74,18 +74,18 @@ exports.createTeam = async (req, res) => {
     
     const duplicateTeam = existingTeams.find(team => {
       // Skip comparison if either name is empty after normalization
-      if (!team.name || !normalizedNewName) return false;
+      if (!team.teamName || !normalizedNewName) return false;
       
-      const normalizedExistingName = normalizeTeamName(team.name);
+      const normalizedExistingName = normalizeTeamName(team.teamName);
       // Only consider it a duplicate if both normalized names are non-empty and match
       return normalizedExistingName && normalizedNewName && 
              normalizedExistingName === normalizedNewName;
     });
     
     if (duplicateTeam) {
-      console.log('Duplicate team found:', duplicateTeam.name);
+      console.log('Duplicate team found:', duplicateTeam.teamName);
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${duplicateTeam.name}"` 
+        message: `A team with this name already exists: "${duplicateTeam.teamName}"` 
       });
     }
     
@@ -99,14 +99,14 @@ exports.createTeam = async (req, res) => {
 
     // Create team with sanitized data
     const team = await Team.create({
-      name: teamName,
+      teamName: teamName,
       captain: captain.trim(),
       email: email ? email.trim().toLowerCase() : undefined,
       password: hashedPassword,
       logo: logo ? logo.trim() : undefined
     });
 
-    console.log('Team created successfully:', { id: team._id, name: team.name });
+    console.log('Team created successfully:', { id: team._id, name: team.teamName });
     res.status(201).json({ message: 'Team created successfully', team });
   } catch (error) {
     console.error('Error creating team:', error);
@@ -151,10 +151,10 @@ exports.updateTeam = async (req, res) => {
     // Log all existing team names and their normalized versions for debugging
     console.log('Update - All existing teams (excluding current):');
     existingTeams.forEach(team => {
-      const normalizedExistingName = normalizeTeamName(team.name);
+      const normalizedExistingName = normalizeTeamName(team.teamName);
       console.log({
         id: team._id,
-        originalName: team.name,
+        originalName: team.teamName,
         normalizedName: normalizedExistingName,
         matches: normalizedExistingName === normalizedNewName
       });
@@ -162,9 +162,9 @@ exports.updateTeam = async (req, res) => {
     
     const duplicateTeam = existingTeams.find(team => {
       // Skip comparison if either name is empty after normalization
-      if (!team.name || !normalizedNewName) return false;
+      if (!team.teamName || !normalizedNewName) return false;
       
-      const normalizedExistingName = normalizeTeamName(team.name);
+      const normalizedExistingName = normalizeTeamName(team.teamName);
       // Only consider it a duplicate if both normalized names are non-empty and match
       return normalizedExistingName && normalizedNewName && 
              normalizedExistingName === normalizedNewName;
@@ -172,7 +172,7 @@ exports.updateTeam = async (req, res) => {
     
     if (duplicateTeam) {
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${duplicateTeam.name}"` 
+        message: `A team with this name already exists: "${duplicateTeam.teamName}"` 
       });
     }
     
@@ -182,7 +182,7 @@ exports.updateTeam = async (req, res) => {
     }
 
     const updateData = { 
-      name: trimmedName, 
+      teamName: trimmedName, 
       captain: trimmedCaptain,
       logo: logo ? logo.trim() : undefined
     };
@@ -202,7 +202,7 @@ exports.updateTeam = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
 
-    console.log('Team updated successfully:', { id: team._id, name: team.name });
+    console.log('Team updated successfully:', { id: team._id, name: team.teamName });
     res.json({ message: 'Team updated successfully', team });
   } catch (error) {
     console.error('Error updating team:', error);

@@ -12,6 +12,11 @@ const teamSchema = new mongoose.Schema({
       message: 'Team name cannot be empty'
     }
   },
+  // Add teamName field to handle legacy data and maintain compatibility
+  teamName: {
+    type: String,
+    sparse: true
+  },
   captain: { 
     type: String, 
     required: true,
@@ -49,11 +54,15 @@ const teamSchema = new mongoose.Schema({
 // Add indexes for better query performance
 teamSchema.index({ name: 1 });
 teamSchema.index({ email: 1 });
+// Add teamName index to handle legacy data
+teamSchema.index({ teamName: 1 });
 
 // Pre-save middleware to ensure data consistency
 teamSchema.pre('save', function(next) {
   if (this.name) {
     this.name = this.name.trim().replace(/\s+/g, ' ');
+    // Keep teamName in sync with name for backward compatibility
+    this.teamName = null; // Set to null to avoid duplicate key issues
   }
   if (this.captain) {
     this.captain = this.captain.trim().replace(/\s+/g, ' ');

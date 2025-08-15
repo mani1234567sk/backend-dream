@@ -15,19 +15,48 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
+    console.log('Creating team with data:', req.body);
+    console.log('User role:', req.user?.role);
+    
     const { name, captain, password, logo } = req.body;
+    
+    // Validate required fields
+    if (!name || !captain || !password) {
+      return res.status(400).json({ message: 'Name, captain, and password are required' });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+    
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const team = await Team.create({
       name,
       captain,
       password: hashedPassword,
-      logo
+      logo: logo || ''
     });
 
-    res.status(201).json({ message: 'Team created successfully', team });
+    // Return team without password
+    const teamResponse = {
+      _id: team._id,
+      name: team.name,
+      captain: team.captain,
+      logo: team.logo,
+      players: team.players,
+      currentLeague: team.currentLeague,
+      matchesPlayed: team.matchesPlayed,
+      wins: team.wins,
+      createdAt: team.createdAt
+    };
+
+    res.status(201).json({ message: 'Team created successfully', team: teamResponse });
   } catch (error) {
     console.error('Error creating team:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Team name already exists' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 };

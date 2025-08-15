@@ -1,87 +1,26 @@
 const Team = require('../models/Team');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-// Authentication Middleware
-exports.authenticateToken = async (req, res, next) => {
+// Helper function to normalize team names for comparison
+const normalizeTeamName = (name) => {
+  if (!name || typeof name !== 'string') return '';
+  
   try {
-    const authHeader = req.header('Authorization');
-    console.log('Received Authorization header:', authHeader);
-    if (!authHeader) {
-      return res.status(401).json({ message: 'No authorization header provided' });
-    }
-    if (!authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ message: 'Invalid authorization header format. Must start with "Bearer "' });
-    }
-    const token = authHeader.substring(7);
-    if (!token || token.trim() === '') {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3) {
-      return res.status(401).json({ message: 'Invalid token format' });
-    }
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-      console.log('Decoded token:', decoded);
-    } catch (jwtError) {
-      if (jwtError.name === 'JsonWebTokenError') {
-        return res.status(401).json({ message: 'Invalid token' });
-      } else if (jwtError.name === 'TokenExpiredError') {
-        return res.status(401).json({ message: 'Token expired' });
-      } else {
-        return res.status(401).json({ message: 'Token verification failed' });
-      }
-    }
-    if (!decoded.userId || !decoded.email) {
-      return res.status(401).json({ message: 'Invalid token payload' });
-    }
-    const user = await User.findById(decoded.userId);
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-    req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role || user.role
-    };
-    console.log('Authenticated user:', req.user);
-    next();
-  } catch (error) {
-    console.error('Error in authenticateToken middleware:', error);
-    res.status(500).json({ message: 'Internal server error during authentication' });
-  }
-};
-
-exports.isAdmin = (req, res, next) => {
-  console.log('Checking isAdmin:', req.user);
-  if (!req.user) {
-    return res.status(401).json({ message: 'Authentication required' });
-  }
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ message: 'Admin access required' });
-  }
-  next();
-};
-
-// Team Controller
-const sanitizeTeamName = (name) => {
-  if (!name || typeof name !== 'string') {
-    console.log('Invalid team name input:', name);
-    return '';
-  }
-  try {
+    // First trim and normalize spaces
     const trimmed = name.trim().replace(/\s+/g, ' ');
+    // Then remove special characters except alphanumeric, hyphens and spaces
+    // Make this more lenient by keeping more characters
     const cleaned = trimmed.replace(/[^\w\s-]/g, '');
-    console.log('Sanitized team name:', { original: name, cleaned });
-    return cleaned;
+    // Convert to lowercase for case-insensitive comparison
+    const normalized = cleaned.toLowerCase();
+    
+    console.log(`Normalizing: "${name}" -> "${normalized}"`);
+    return normalized;
   } catch (error) {
-    console.error('Error sanitizing team name:', error);
-    return name ? name.toString() : '';
+    console.error('Error normalizing team name:', error);
+    // Return a safe fallback
+    return name ? name.toString().toLowerCase() : '';
   }
 };
 
@@ -97,28 +36,66 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    console.log('Received request body:', req.body);
-    const { name, captain, password, logo, email } = req.body;
+    console.log('Received team creation request:', req.body);
+    
+    // Extract fields from request body - handle both 'name' and 'teamName'
+    const { name, teamName, captain, password, logo, email } = req.body;
+    
+    // Use 'name' if provided, otherwise use 'teamName' for backward compatibility
+    const finalTeamName = name || teamName;
     
     // Validate required fields
-    if (!name || !captain || !password) {
+    if (!finalTeamName || !captain || !password) {
       return res.status(400).json({ message: 'Team name, captain, and password are required' });
     }
     
     // Sanitize and validate team name
-    const trimmedName = sanitizeTeamName(name);
+    const trimmedName = finalTeamName.trim();
     if (!trimmedName) {
       return res.status(400).json({ message: 'Team name cannot be empty' });
     }
     
-    // Check for duplicate team names (case-sensitive)
-    console.log('Checking for duplicate team name:', trimmedName);
-    const existingTeam = await Team.findOne({ name: trimmedName });
+    // Check for duplicate team names with proper normalization
+    const normalizedNewName = normalizeTeamName(trimmedName);
+    console.log('Checking for duplicate team name:', { 
+      original: finalTeamName, 
+      trimmed: trimmedName, 
+      normalized: normalizedNewName 
+    });
     
-    if (existingTeam) {
-      console.log('Duplicate team found:', existingTeam);
+    // Check if normalized name already exists using direct query
+    const existingTeams = await Team.find({});
+    
+    // Log all existing team names and their normalized versions for debugging
+    console.log('All existing teams:');
+    existingTeams.forEach(team => {
+      const normalizedExistingName = normalizeTeamName(team.name);
+      console.log({
+        id: team._id,
+        originalName: team.name,
+        normalizedName: normalizedExistingName,
+        matches: normalizedExistingName === normalizedNewName
+      });
+    });
+    
+    const duplicateTeam = existingTeams.find(team => {
+      // Skip comparison if either name is empty after normalization
+      if (!team.name || !normalizedNewName) return false;
+      
+      const normalizedExistingName = normalizeTeamName(team.name);
+      // Only consider it a duplicate if both normalized names are non-empty and match exactly
+      const isMatch = normalizedExistingName && normalizedNewName && 
+             normalizedExistingName === normalizedNewName;
+      
+      console.log(`Comparing: "${team.name}" (${normalizedExistingName}) with "${trimmedName}" (${normalizedNewName}) - Match: ${isMatch}`);
+      
+      return isMatch;
+    });
+    
+    if (duplicateTeam) {
+      console.log('Duplicate team found:', duplicateTeam.name);
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${existingTeam.name}"` 
+        message: `A team with this name already exists: "${duplicateTeam.name}"` 
       });
     }
     
@@ -127,11 +104,6 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid email address' });
     }
     
-    // Validate password length
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters' });
-    }
-
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -145,46 +117,98 @@ exports.createTeam = async (req, res) => {
     });
 
     console.log('Team created successfully:', { id: team._id, name: team.name });
-    res.status(201).json({ message: 'Team created successfully', team });
+    
+    // Return team without password
+    const teamResponse = await Team.findById(team._id).select('-password');
+    res.status(201).json({ message: 'Team created successfully', team: teamResponse });
   } catch (error) {
     console.error('Error creating team:', error);
     
-    // Handle MongoDB duplicate key error
+    // Handle MongoDB duplicate key error (E11000) with more detailed message
     if (error.code === 11000) {
-      console.log('MongoDB duplicate key error for name:', req.body.name);
-      return res.status(400).json({ message: `A team with this name already exists: "${req.body.name}"` });
+      // Extract the duplicate key field name from the error message
+      const keyPattern = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'unknown';
+      const keyValue = error.keyValue ? JSON.stringify(error.keyValue) : 'unknown';
+      
+      console.log(`Duplicate key error: field=${keyPattern}, value=${keyValue}`);
+      
+      return res.status(400).json({ 
+        message: `A team with this ${keyPattern} already exists: ${keyValue}`,
+        details: {
+          code: error.code,
+          keyPattern,
+          keyValue: error.keyValue
+        }
+      });
     }
     
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      message: 'Server error', 
+      details: error.message 
+    });
   }
 };
 
 exports.updateTeam = async (req, res) => {
   try {
-    console.log('Received request body for update:', req.body);
     const { id } = req.params;
-    const { name, captain, logo, email } = req.body;
+    const { name, teamName, captain, logo, email } = req.body;
+    
+    // Use 'name' if provided, otherwise use 'teamName' for backward compatibility
+    const finalTeamName = name || teamName;
     
     // Validate and sanitize input data
-    if (!name || !captain) {
-      return res.status(400).json({ message: 'Name and captain are required' });
+    if (!finalTeamName || !captain) {
+      return res.status(400).json({ message: 'Team name and captain are required' });
     }
     
-    const trimmedName = sanitizeTeamName(name);
+    const trimmedName = finalTeamName.trim();
     const trimmedCaptain = captain.trim();
     
     if (!trimmedName || !trimmedCaptain) {
       return res.status(400).json({ message: 'Name and captain cannot be empty' });
     }
     
-    // Check for duplicate team names (case-sensitive, excluding current team)
-    console.log('Update - Checking for duplicate team name:', trimmedName);
-    const existingTeam = await Team.findOne({ name: trimmedName, _id: { $ne: id } });
+    // Check for duplicate team names (excluding current team)
+    const normalizedNewName = normalizeTeamName(trimmedName);
+    console.log('Update - Checking for duplicate team name:', { 
+      id: id,
+      original: finalTeamName, 
+      trimmed: trimmedName, 
+      normalized: normalizedNewName 
+    });
     
-    if (existingTeam) {
-      console.log('Duplicate team found:', existingTeam);
+    const existingTeams = await Team.find({ _id: { $ne: id } });
+    
+    // Log all existing team names and their normalized versions for debugging
+    console.log('Update - All existing teams (excluding current):');
+    existingTeams.forEach(team => {
+      const normalizedExistingName = normalizeTeamName(team.name);
+      console.log({
+        id: team._id,
+        originalName: team.name,
+        normalizedName: normalizedExistingName,
+        matches: normalizedExistingName === normalizedNewName
+      });
+    });
+    
+    const duplicateTeam = existingTeams.find(team => {
+      // Skip comparison if either name is empty after normalization
+      if (!team.name || !normalizedNewName) return false;
+      
+      const normalizedExistingName = normalizeTeamName(team.name);
+      // Only consider it a duplicate if both normalized names are non-empty and match exactly
+      const isMatch = normalizedExistingName && normalizedNewName && 
+             normalizedExistingName === normalizedNewName;
+      
+      console.log(`Comparing (update): "${team.name}" (${normalizedExistingName}) with "${trimmedName}" (${normalizedNewName}) - Match: ${isMatch}`);
+      
+      return isMatch;
+    });
+    
+    if (duplicateTeam) {
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${existingTeam.name}"` 
+        message: `A team with this name already exists: "${duplicateTeam.name}"` 
       });
     }
     
@@ -194,11 +218,12 @@ exports.updateTeam = async (req, res) => {
     }
 
     const updateData = { 
-      name: trimmedName, 
+      name: trimmedName,
       captain: trimmedCaptain,
       logo: logo ? logo.trim() : undefined
     };
     
+    // Only update email if provided
     if (email !== undefined) {
       updateData.email = email ? email.trim().toLowerCase() : '';
     }
@@ -207,7 +232,7 @@ exports.updateTeam = async (req, res) => {
       id,
       updateData,
       { new: true }
-    ).populate('players', 'name').populate('currentLeague', 'name');
+    ).populate('players', 'name').populate('currentLeague', 'name').select('-password');
 
     if (!team) {
       return res.status(404).json({ message: 'Team not found' });
@@ -217,25 +242,62 @@ exports.updateTeam = async (req, res) => {
     res.json({ message: 'Team updated successfully', team });
   } catch (error) {
     console.error('Error updating team:', error);
+    
+    // Handle MongoDB duplicate key error with more detailed message
     if (error.code === 11000) {
-      console.log('MongoDB duplicate key error for name:', req.body.name);
-      return res.status(400).json({ message: `A team with this name already exists: "${req.body.name}"` });
+      // Extract the duplicate key field name from the error message
+      const keyPattern = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'unknown';
+      const keyValue = error.keyValue ? JSON.stringify(error.keyValue) : 'unknown';
+      
+      console.log(`Duplicate key error (update): field=${keyPattern}, value=${keyValue}`);
+      
+      return res.status(400).json({ 
+        message: `A team with this ${keyPattern} already exists: ${keyValue}`,
+        details: {
+          code: error.code,
+          keyPattern,
+          keyValue: error.keyValue
+        }
+      });
     }
-    res.status(500).json({ message: 'Server error', error: error.message });
+    
+    res.status(500).json({ 
+      message: 'Server error', 
+      details: error.message 
+    });
   }
 };
 
 exports.deleteTeam = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid team ID' });
+    }
+    
+    const team = await Team.findById(id);
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+    
+    // Remove team reference from all users
     await User.updateMany(
       { team: id },
       { $unset: { team: 1 } }
     );
+    
+    // Remove team from any leagues
+    const League = require('../models/League');
+    await League.updateMany(
+      { teams: id },
+      { $pull: { teams: id } }
+    );
+    
     await Team.findByIdAndDelete(id);
     res.json({ message: 'Team deleted successfully' });
   } catch (error) {
     console.error('Error deleting team:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ message: 'Server error' });
   }
 };

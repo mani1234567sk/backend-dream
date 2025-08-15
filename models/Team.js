@@ -23,6 +23,17 @@ const teamSchema = new mongoose.Schema({
       message: 'Captain name cannot be empty'
     }
   },
+  email: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    validate: {
+      validator: function(v) {
+        return !v || /^\S+@\S+\.\S+$/.test(v);
+      },
+      message: 'Please provide a valid email address'
+    }
+  },
   password: { type: String, required: true },
   logo: { 
     type: String,
@@ -35,8 +46,9 @@ const teamSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Add a compound index for better query performance
+// Add indexes for better query performance
 teamSchema.index({ name: 1 });
+teamSchema.index({ email: 1 });
 
 // Pre-save middleware to ensure data consistency
 teamSchema.pre('save', function(next) {
@@ -45,6 +57,9 @@ teamSchema.pre('save', function(next) {
   }
   if (this.captain) {
     this.captain = this.captain.trim().replace(/\s+/g, ' ');
+  }
+  if (this.email) {
+    this.email = this.email.trim().toLowerCase();
   }
   if (this.logo) {
     this.logo = this.logo.trim();

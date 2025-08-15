@@ -57,7 +57,7 @@ exports.createTeam = async (req, res) => {
     
     // Check if normalized name already exists
     const duplicateTeam = existingNormalizedNames.find(team => 
-      team.normalized === normalizedNewName && team.normalized !== ''
+      team.normalized === normalizedNewName
     );
     
     if (duplicateTeam) {
@@ -119,7 +119,7 @@ exports.updateTeam = async (req, res) => {
     }));
     
     const duplicateTeam = existingNormalizedNames.find(team => 
-      team.normalized === normalizedNewName && team.normalized !== ''
+      team.normalized === normalizedNewName
     );
     
     if (duplicateTeam) {

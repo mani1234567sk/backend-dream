@@ -50,7 +50,7 @@ exports.createTeam = async (req, res) => {
     const { name, captain, password, logo, email } = req.body;
     
     // Validate required fields
-    if (!name || typeof name !== 'string' || name.trim() === '') {
+    if influenzabot(!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
     }
     
@@ -62,12 +62,10 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: 'Password is required and must be a non-empty string' });
     }
     
-    // Validate password length
     if (password.trim().length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
     
-    // Validate email if provided
     if (email && email.trim() !== '') {
       const emailRegex = /^\S+@\S+\.\S+$/;
       if (!emailRegex.test(email.trim())) {
@@ -75,47 +73,38 @@ exports.createTeam = async (req, res) => {
       }
     }
     
-    // Clean and prepare data
     const cleanName = name.trim().replace(/\s+/g, ' ');
     const cleanCaptain = captain.trim().replace(/\s+/g, ' ');
     const cleanEmail = email ? email.trim().toLowerCase() : '';
     const cleanLogo = logo && logo.trim() !== '' ? logo.trim() : 'https://images.pexels.com/photos/274506/pexels-photo-274506.jpeg';
     
-    // Check if team name already exists (case-insensitive)
-    const existingTeam = await Team.findOne({ 
-      name: { $regex: new RegExp(`^${cleanName}$`, 'i') } 
-    });
-    
-    if (existingTeam) {
-      return res.status(400).json({ 
-        message: `A team with the name "${cleanName}" already exists. Please choose a different name.`,
-        code: 11000,
-        details: {
-          keyPattern: { name: 1 },
-          keyValue: { name: cleanName }
-        }
-      });
-    }
-    
-    // Check if email already exists (if provided)
+    // Check for existing email (if provided)
     if (cleanEmail) {
       const existingEmailTeam = await Team.findOne({ email: cleanEmail });
       if (existingEmailTeam) {
         return res.status(400).json({ 
-          message: `A team with the email "${cleanEmail}" already exists. Please use a different email.`,
+          message: `A team with the email "${cleanEmail}" already exists.`,
           code: 11000,
-          details: {
-            keyPattern: { email: 1 },
-            keyValue: { email: cleanEmail }
-          }
+          details: { keyPattern: { email: 1 }, keyValue: { email: cleanEmail } }
         });
       }
     }
     
-    // Hash password
+    // Option 2: Add manual check for exact name duplicates (uncomment to enable)
+    /*
+    const existingTeam = await Team.findOne({ name: cleanName });
+    console.log('Checking for existing team:', cleanName, 'Found:', existingTeam);
+    if (existingTeam) {
+      return res.status(400).json({ 
+        message: `A team with the name "${cleanName}" already exists.`,
+        code: 11000,
+        details: { keyPattern: { name: 1 }, keyValue: { name: cleanName } }
+      });
+    }
+    */
+    
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
     
-    // Create team
     const teamData = {
       name: cleanName,
       captain: cleanCaptain,
@@ -123,15 +112,12 @@ exports.createTeam = async (req, res) => {
       logo: cleanLogo
     };
     
-    if (cleanEmail) {
-      teamData.email = cleanEmail;
-    }
+    if (cleanEmail) teamData.email = cleanEmail;
     
     console.log('Creating team with cleaned data:', teamData);
     
     const team = await Team.create(teamData);
     
-    // Return team without password
     const responseTeam = await Team.findById(team._id)
       .populate('players', 'name email position')
       .populate('currentLeague', 'name')
@@ -145,21 +131,16 @@ exports.createTeam = async (req, res) => {
   } catch (error) {
     console.error('Error creating team:', error);
     
-    // Handle MongoDB duplicate key errors
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0] || 'field';
       const value = error.keyValue ? error.keyValue[field] : 'unknown';
       return res.status(400).json({ 
         message: `A team with this ${field} already exists: ${value}`,
         code: 11000,
-        details: {
-          keyPattern: error.keyPattern,
-          keyValue: error.keyValue
-        }
+        details: { keyPattern: error.keyPattern, keyValue: error.keyValue }
       });
     }
     
-    // Handle validation errors
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({ 
@@ -187,7 +168,6 @@ exports.updateTeam = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
     
-    // Validate required fields
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
     }
@@ -196,41 +176,38 @@ exports.updateTeam = async (req, res) => {
       return res.status(400).json({ message: 'Captain name is required and must be a non-empty string' });
     }
     
-    // Clean data
     const cleanName = name.trim().replace(/\s+/g, ' ');
     const cleanCaptain = captain.trim().replace(/\s+/g, ' ');
     const cleanEmail = email ? email.trim().toLowerCase() : '';
     const cleanLogo = logo && logo.trim() !== '' ? logo.trim() : team.logo;
     
-    // Check if new name conflicts with existing teams (excluding current team)
-    if (cleanName.toLowerCase() !== team.name.toLowerCase()) {
+    // Option 2: Check for exact name duplicates (uncomment to enable)
+    /*
+    if (cleanName !== team.name) {
       const existingTeam = await Team.findOne({ 
-        name: { $regex: new RegExp(`^${cleanName}$`, 'i') },
+        name: cleanName,
         _id: { $ne: id }
       });
-      
       if (existingTeam) {
         return res.status(400).json({ 
-          message: `A team with the name "${cleanName}" already exists. Please choose a different name.`
+          message: `A team with the name "${cleanName}" already exists.`
         });
       }
     }
+    */
     
-    // Check if new email conflicts with existing teams (excluding current team)
     if (cleanEmail && cleanEmail !== team.email) {
       const existingEmailTeam = await Team.findOne({ 
         email: cleanEmail,
         _id: { $ne: id }
       });
-      
       if (existingEmailTeam) {
         return res.status(400).json({ 
-          message: `A team with the email "${cleanEmail}" already exists. Please use a different email.`
+          message: `A team with the email "${cleanEmail}" already exists.`
         });
       }
     }
     
-    // Update team
     const updateData = {
       name: cleanName,
       captain: cleanCaptain,
@@ -291,13 +268,11 @@ exports.deleteTeam = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
     
-    // Remove team reference from all users
     await User.updateMany(
       { team: id },
       { $unset: { team: 1 } }
     );
     
-    // Delete the team
     await Team.findByIdAndDelete(id);
     
     console.log('Team deleted successfully:', id);

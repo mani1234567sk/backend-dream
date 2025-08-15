@@ -9,6 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 exports.authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.header('Authorization');
+    console.log('Received Authorization header:', authHeader); // Debug log
     if (!authHeader) {
       return res.status(401).json({ message: 'No authorization header provided' });
     }
@@ -26,6 +27,7 @@ exports.authenticateToken = async (req, res, next) => {
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
+      console.log('Decoded token:', decoded); // Debug log
     } catch (jwtError) {
       if (jwtError.name === 'JsonWebTokenError') {
         return res.status(401).json({ message: 'Invalid token' });
@@ -47,6 +49,7 @@ exports.authenticateToken = async (req, res, next) => {
       email: decoded.email,
       role: decoded.role || user.role
     };
+    console.log('Authenticated user:', req.user); // Debug log
     next();
   } catch (error) {
     console.error('Error in authenticateToken middleware:', error);
@@ -55,6 +58,7 @@ exports.authenticateToken = async (req, res, next) => {
 };
 
 exports.isAdmin = (req, res, next) => {
+  console.log('Checking isAdmin:', req.user); // Debug log
   if (!req.user) {
     return res.status(401).json({ message: 'Authentication required' });
   }
@@ -65,12 +69,13 @@ exports.isAdmin = (req, res, next) => {
 };
 
 // Team Controller
-// Helper function to sanitize team names
 const sanitizeTeamName = (name) => {
   if (!name || typeof name !== 'string') return '';
   try {
-    const trimmed = name.trim().replace(/\s+/g, ' ');
-    return trimmed.replace(/[^\w\s-]/g, ''); // Remove special characters except alphanumeric, spaces, and hyphens
+    const trimmed = name.trim().replace(/\s+/g, ' '); // Normalize spaces
+    const cleaned = trimmed.replace(/[^\w\s-]/g, ''); // Remove special characters
+    console.log('Sanitized team name:', { original: name, cleaned }); // Debug log
+    return cleaned;
   } catch (error) {
     console.error('Error sanitizing team name:', error);
     return name ? name.toString() : '';
@@ -89,7 +94,7 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    console.log('Received request body:', req.body); // Log incoming request body
+    console.log('Received request body:', req.body); // Debug log
     const { name, captain, password, logo, email } = req.body;
     
     // Validate required fields
@@ -103,12 +108,12 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: 'Team name cannot be empty' });
     }
     
-    // Check for duplicate team names (case-sensitive to match MongoDB index)
-    console.log('Checking for duplicate team name:', { original: name, sanitized: trimmedName });
+    // Check for duplicate team names (case-sensitive)
+    console.log('Checking for duplicate team name:', trimmedName); // Debug log
     const existingTeam = await Team.findOne({ name: trimmedName });
     
     if (existingTeam) {
-      console.log('Duplicate team found:', existingTeam.name);
+      console.log('Duplicate team found:', existingTeam); // Debug log
       return res.status(400).json({ 
         message: `A team with this name already exists: "${existingTeam.name}"` 
       });
@@ -138,6 +143,7 @@ exports.createTeam = async (req, res) => {
     
     // Handle MongoDB duplicate key error
     if (error.code === 11000) {
+      console.log('MongoDB duplicate key error for name:', req.body.name);
       return res.status(400).json({ message: `A team with this name already exists: "${req.body.name}"` });
     }
     
@@ -164,10 +170,11 @@ exports.updateTeam = async (req, res) => {
     }
     
     // Check for duplicate team names (case-sensitive, excluding current team)
-    console.log('Update - Checking for duplicate team name:', { id, original: name, sanitized: trimmedName });
+    console.log('Update - Checking for duplicate team name:', trimmedName);
     const existingTeam = await Team.findOne({ name: trimmedName, _id: { $ne: id } });
     
     if (existingTeam) {
+      console.log('Duplicate team found:', existingTeam);
       return res.status(400).json({ 
         message: `A team with this name already exists: "${existingTeam.name}"` 
       });
@@ -184,7 +191,6 @@ exports.updateTeam = async (req, res) => {
       logo: logo ? logo.trim() : undefined
     };
     
-    // Only update email if provided
     if (email !== undefined) {
       updateData.email = email ? email.trim().toLowerCase() : '';
     }
@@ -203,12 +209,10 @@ exports.updateTeam = async (req, res) => {
     res.json({ message: 'Team updated successfully', team });
   } catch (error) {
     console.error('Error updating team:', error);
-    
-    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
+      console.log('MongoDB duplicate key error for name:', req.body.name);
       return res.status(400).json({ message: `A team with this name already exists: "${req.body.name}"` });
     }
-    
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -216,13 +220,10 @@ exports.updateTeam = async (req, res) => {
 exports.deleteTeam = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Remove team reference from all users
     await User.updateMany(
       { team: id },
       { $unset: { team: 1 } }
     );
-    
     await Team.findByIdAndDelete(id);
     res.json({ message: 'Team deleted successfully' });
   } catch (error) {

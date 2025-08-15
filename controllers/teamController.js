@@ -24,11 +24,11 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    const { name, captain, password, logo } = req.body;
+    const { teamName: name, captain, password, logo } = req.body;
     
     // Validate required fields
     if (!name || !captain || !password) {
-      return res.status(400).json({ message: 'Name, captain, and password are required' });
+      return res.status(400).json({ message: 'Team name, captain, and password are required' });
     }
     
     // Sanitize and validate team name
@@ -36,6 +36,9 @@ exports.createTeam = async (req, res) => {
     if (!trimmedName) {
       return res.status(400).json({ message: 'Team name cannot be empty' });
     }
+    
+    // Ensure teamName is properly mapped to name field for MongoDB
+    const teamName = trimmedName;
     
     // Check for duplicate team names with proper normalization
     const normalizedNewName = normalizeTeamName(trimmedName);
@@ -72,7 +75,7 @@ exports.createTeam = async (req, res) => {
 
     // Create team with sanitized data
     const team = await Team.create({
-      name: trimmedName,
+      name: teamName,
       captain: captain.trim(),
       password: hashedPassword,
       logo: logo ? logo.trim() : undefined

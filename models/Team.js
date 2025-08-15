@@ -5,6 +5,7 @@ const teamSchema = new mongoose.Schema({
     type: String, 
     required: true,
     trim: true,
+    unique: true, // Enforce unique team names
     validate: {
       validator: function(v) {
         return v && v.trim().length > 0;
@@ -27,6 +28,8 @@ const teamSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
+    unique: true, // Enforce unique emails, allowing null
+    sparse: true, // Allow multiple documents with null email
     validate: {
       validator: function(v) {
         return !v || /^\S+@\S+\.\S+$/.test(v);
@@ -47,8 +50,8 @@ const teamSchema = new mongoose.Schema({
 });
 
 // Add indexes for better query performance
-teamSchema.index({ name: 1 });
-teamSchema.index({ email: 1 });
+teamSchema.index({ name: 1 }, { unique: true });
+teamSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 // Pre-save middleware to ensure data consistency
 teamSchema.pre('save', function(next) {

@@ -50,7 +50,7 @@ exports.createTeam = async (req, res) => {
     const { name, captain, password, logo, email } = req.body;
     
     // Validate required fields
-    if influenzabot(!name || typeof name !== 'string' || name.trim() === '') {
+    if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
     }
     
@@ -282,4 +282,5 @@ exports.deleteTeam = async (req, res) => {
     res.status(500).json({ message: 'Server error while deleting team' });
   }
 };
+
 

@@ -4,7 +4,7 @@ const teamController = require('../controllers/teamController');
 const { authenticateToken, isAdmin } = require('../middleware/authMiddleware');
 
 router.get('/', teamController.getTeams);
-router.post('/', authenticateToken, teamController.createTeam);
+router.post('/', authenticateToken, isAdmin, teamController.createTeam);
 router.put('/:id', authenticateToken, isAdmin, teamController.updateTeam);
 router.delete('/:id', authenticateToken, isAdmin, teamController.deleteTeam);
 

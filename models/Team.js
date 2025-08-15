@@ -4,7 +4,6 @@ const teamSchema = new mongoose.Schema({
   name: { 
     type: String, 
     required: true, 
-    unique: true,
     trim: true,
     minlength: 2,
     maxlength: 50
@@ -66,8 +65,7 @@ const teamSchema = new mongoose.Schema({
   }
 });
 
-// Add indexes for better performance
-teamSchema.index({ name: 1 });
-teamSchema.index({ email: 1 });
+// Keep email index as sparse and unique (for optional email field)
+teamSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Team', teamSchema);

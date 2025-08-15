@@ -1,10 +1,10 @@
 const Team = require('../models/Team');
 const User = require('../models/User');
-const League = require('../models/League'); // Add League model for reference cleanup
+const League = require('../models/League');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Helper function to normalize team names for comparison
+// Helper function to normalize team names
 const normalizeTeamName = (name) => {
   if (!name || typeof name !== 'string') return '';
   try {
@@ -180,7 +180,7 @@ exports.updateTeam = async (req, res) => {
       logo: logo ? logo.trim() : undefined
     };
 
-    // Only update email if provided (allow clearing email by sending empty string)
+    // Only update email if provided (allow clearing email)
     if (email !== undefined) {
       updateData.email = email ? email.trim().toLowerCase() : '';
     }

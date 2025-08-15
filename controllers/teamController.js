@@ -24,7 +24,7 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    const { teamName: name, captain, password, logo } = req.body;
+    const { teamName: name, captain, password, logo, email } = req.body;
     
     // Validate required fields
     if (!name || !captain || !password) {
@@ -48,26 +48,19 @@ exports.createTeam = async (req, res) => {
       normalized: normalizedNewName 
     });
     
-    // Get all existing team names and normalize them for comparison
-    const existingTeams = await Team.find({}, 'name');
-    const existingNormalizedNames = existingTeams.map(team => ({
-      id: team._id,
-      original: team.name,
-      normalized: normalizeTeamName(team.name)
-    }));
+    // Check if normalized name already exists using direct query instead of in-memory comparison
+    const existingTeam = await Team.findOne({ name: new RegExp(`^${normalizedNewName}$`, 'i') });
     
-    console.log('Existing teams for comparison:', existingNormalizedNames);
-    
-    // Check if normalized name already exists
-    const duplicateTeam = existingNormalizedNames.find(team => 
-      team.normalized === normalizedNewName
-    );
-    
-    if (duplicateTeam) {
-      console.log('Duplicate team found:', duplicateTeam);
+    if (existingTeam) {
+      console.log('Duplicate team found:', existingTeam.name);
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${duplicateTeam.original}"` 
+        message: `A team with this name already exists: "${existingTeam.name}"` 
       });
+    }
+    
+    // Validate email format if provided
+    if (email && !/^\S+@\S+\.\S+$/.test(email.trim())) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
     }
     
     // Hash password
@@ -77,6 +70,7 @@ exports.createTeam = async (req, res) => {
     const team = await Team.create({
       name: teamName,
       captain: captain.trim(),
+      email: email ? email.trim().toLowerCase() : undefined,
       password: hashedPassword,
       logo: logo ? logo.trim() : undefined
     });
@@ -98,7 +92,7 @@ exports.createTeam = async (req, res) => {
 exports.updateTeam = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, captain, logo } = req.body;
+    const { teamName: name, captain, logo, email } = req.body;
     
     // Validate and sanitize input data
     if (!name || !captain) {
@@ -112,32 +106,38 @@ exports.updateTeam = async (req, res) => {
       return res.status(400).json({ message: 'Name and captain cannot be empty' });
     }
     
-    // Check for duplicate team names (excluding current team)
+    // Check for duplicate team names (excluding current team) using direct query
     const normalizedNewName = normalizeTeamName(trimmedName);
-    const existingTeams = await Team.find({ _id: { $ne: id } }, 'name');
-    const existingNormalizedNames = existingTeams.map(team => ({
-      id: team._id,
-      original: team.name,
-      normalized: normalizeTeamName(team.name)
-    }));
-    
-    const duplicateTeam = existingNormalizedNames.find(team => 
-      team.normalized === normalizedNewName
-    );
+    const duplicateTeam = await Team.findOne({
+      _id: { $ne: id },
+      name: new RegExp(`^${normalizedNewName}$`, 'i')
+    });
     
     if (duplicateTeam) {
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${duplicateTeam.original}"` 
+        message: `A team with this name already exists: "${duplicateTeam.name}"` 
       });
+    }
+    
+    // Validate email format if provided
+    if (email && !/^\S+@\S+\.\S+$/.test(email.trim())) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    const updateData = { 
+      name: trimmedName, 
+      captain: trimmedCaptain,
+      logo: logo ? logo.trim() : undefined
+    };
+    
+    // Only update email if provided
+    if (email !== undefined) {
+      updateData.email = email ? email.trim().toLowerCase() : '';
     }
 
     const team = await Team.findByIdAndUpdate(
       id,
-      { 
-        name: trimmedName, 
-        captain: trimmedCaptain, 
-        logo: logo ? logo.trim() : undefined 
-      },
+      updateData,
       { new: true }
     ).populate('players', 'name').populate('currentLeague', 'name');
 

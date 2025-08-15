@@ -32,7 +32,7 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    // Extract fields from request body, ensuring proper naming
+    // Extract fields from request body
     const { teamName, captain, password, logo, email } = req.body;
     
     // Validate required fields
@@ -53,6 +53,8 @@ exports.createTeam = async (req, res) => {
       trimmed: trimmedName, 
       normalized: normalizedNewName 
     });
+    
+    // Note: The frontend sends 'teamName' but we store it as 'name' in the Team model
     
     // Check if normalized name already exists using direct query
     // Use exact match on normalized name instead of regex to avoid pattern issues
@@ -143,6 +145,8 @@ exports.updateTeam = async (req, res) => {
       trimmed: trimmedName, 
       normalized: normalizedNewName 
     });
+    
+    // Note: The frontend sends 'teamName' but we store it as 'name' in the Team model
     
     const existingTeams = await Team.find({ _id: { $ne: id } });
     

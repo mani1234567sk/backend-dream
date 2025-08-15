@@ -79,6 +79,12 @@ exports.createTeam = async (req, res) => {
       }
     }
     
+    // Check for unexpected teamName field
+    if (req.body.teamName) {
+      console.log('Warning: Unexpected teamName field detected:', req.body.teamName);
+      return res.status(400).json({ message: 'Invalid field: teamName. Use name instead.' });
+    }
+    
     const cleanName = name.trim().replace(/\s+/g, ' ');
     const cleanCaptain = captain.trim().replace(/\s+/g, ' ');
     const cleanEmail = email ? email.trim().toLowerCase() : '';
@@ -142,7 +148,9 @@ exports.createTeam = async (req, res) => {
     console.error('Error details:', {
       code: error.code,
       message: error.message,
-      stack: error.stack
+      stack: error.stack,
+      keyPattern: error.keyPattern,
+      keyValue: error.keyValue
     });
     
     if (error.code === 11000) {
@@ -162,7 +170,7 @@ exports.createTeam = async (req, res) => {
       });
     }
     
-    res.status(500).json({ message: 'Server error while creating team' });
+    res.status(500).json({ message: 'Server error while creating team', error: error.message });
   }
 };
 
@@ -188,6 +196,12 @@ exports.updateTeam = async (req, res) => {
     
     if (!captain || typeof captain !== 'string' || captain.trim() === '') {
       return res.status(400).json({ message: 'Captain name is required and must be a non-empty string' });
+    }
+    
+    // Check for unexpected teamName field
+    if (req.body.teamName) {
+      console.log('Warning: Unexpected teamName field detected:', req.body.teamName);
+      return res.status(400).json({ message: 'Invalid field: teamName. Use name instead.' });
     }
     
     const cleanName = name.trim().replace(/\s+/g, ' ');
@@ -249,7 +263,7 @@ exports.updateTeam = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating team:', error);
-    res.status(500).json({ message: 'Server error while updating team' });
+    res.status(500).json({ message: 'Server error while updating team', error: error.message });
   }
 };
 
@@ -277,6 +291,6 @@ exports.deleteTeam = async (req, res) => {
     res.json({ message: 'Team deleted successfully' });
   } catch (error) {
     console.error('Error deleting team:', error);
-    res.status(500).json({ message: 'Server error while deleting team' });
+    res.status(500).json({ message: 'Server error while deleting team', error: error.message });
   }
 };

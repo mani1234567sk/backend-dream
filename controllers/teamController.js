@@ -45,94 +45,50 @@ exports.getTeamById = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    console.log('Creating team with data:', req.body);
+    console.log('Creating team with data:', JSON.stringify(req.body));
     
     const { teamName, captain, password, logo, email } = req.body;
     
-    // Validate required fields
-    console.log('Validating fields:', { teamName, captain, password, email });
-    if (!teamName || typeof teamName !== 'string' || teamName.trim() === '') {
-      console.log('Validation failed: Invalid teamName');
-      return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
-    }
+    const sanitizedData = {
+      teamName: teamName?.trim()?.replace(/\s+/g, ' ') || '',
+      captain: captain?.trim()?.replace(/\s+/g, ' ') || '',
+      password: password || '',
+      logo: logo?.trim() || 'https://images.pexels.com/photos/274506/pexels-photo-274506.jpeg',
+      email: email?.trim()?.toLowerCase() || '',
+    };
     
-    if (!captain || typeof captain !== 'string' || captain.trim() === '') {
-      console.log('Validation failed: Invalid captain');
-      return res.status(400).json({ message: 'Captain name is required and must be a non-empty string' });
-    }
-    
-    if (!password || typeof password !== 'string' || password.trim() === '') {
-      console.log('Validation failed: Invalid password');
-      return res.status(400).json({ message: 'Password is required and must be a non-empty string' });
-    }
-    
-    if (password.trim().length < 6) {
-      console.log('Validation failed: Password too short');
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
-    }
-    
-    if (email && email.trim() !== '') {
-      const emailRegex = /^\S+@\S+\.\S+$/;
-      if (!emailRegex.test(email.trim())) {
-        console.log('Validation failed: Invalid email');
-        return res.status(400).json({ message: 'Please provide a valid email address' });
-      }
-    }
-    
-    const cleanTeamName = teamName.trim().replace(/\s+/g, ' ');
-    const cleanCaptain = captain.trim().replace(/\s+/g, ' ');
-    const cleanEmail = email ? email.trim().toLowerCase() : '';
-    const cleanLogo = logo && logo.trim() !== '' ? logo.trim() : 'https://images.pexels.com/photos/274506/pexels-photo-274506.jpeg';
-    
-    console.log('Sanitized data:', { cleanTeamName, cleanCaptain, cleanEmail, cleanLogo });
+    console.log('Sanitized data:', JSON.stringify(sanitizedData));
     
     // Check for existing email (if provided)
-    if (cleanEmail) {
-      const existingEmailTeam = await Team.findOne({ email: cleanEmail });
-      console.log('Email check:', { cleanEmail, existingEmailTeam });
+    if (sanitizedData.email) {
+      const existingEmailTeam = await Team.findOne({ email: sanitizedData.email });
+      console.log('Email check:', { email: sanitizedData.email, existingEmailTeam });
       if (existingEmailTeam) {
         return res.status(400).json({ 
-          message: `A team with the email "${cleanEmail}" already exists.`,
+          message: `A team with the email "${sanitizedData.email}" already exists.`,
           code: 11000,
-          details: { keyPattern: { email: 1 }, keyValue: { email: cleanEmail } }
+          details: { keyPattern: { email: 1 }, keyValue: { email: sanitizedData.email } }
         });
       }
     }
     
-    // Option 2: Add manual check for exact teamName duplicates (uncomment to enable)
-    /*
-    const existingTeam = await Team.findOne({ teamName: cleanTeamName });
-    console.log('Checking for existing team:', cleanTeamName, 'Found:', existingTeam);
-    if (existingTeam) {
-      return res.status(400).json({ 
-        message: `A team with the name "${cleanTeamName}" already exists.`,
-        code: 11000,
-        details: { keyPattern: { teamName: 1 }, keyValue: { teamName: cleanTeamName } }
-      });
+    // Hash password
+    if (sanitizedData.password) {
+      sanitizedData.password = await bcrypt.hash(sanitizedData.password.trim(), 10);
+    } else {
+      throw new Error('Password is required');
     }
-    */
     
-    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+    console.log('Creating team with cleaned data:', JSON.stringify(sanitizedData));
     
-    const teamData = {
-      teamName: cleanTeamName,
-      captain: cleanCaptain,
-      password: hashedPassword,
-      logo: cleanLogo
-    };
-    
-    if (cleanEmail) teamData.email = cleanEmail;
-    
-    console.log('Creating team with cleaned data:', teamData);
-    
-    const team = await Team.create(teamData);
+    const team = await Team.create(sanitizedData);
     
     const responseTeam = await Team.findById(team._id)
       .populate('players', 'name email position')
       .populate('currentLeague', 'name')
       .select('-password -__v');
     
-    console.log('Team created successfully:', responseTeam);
+    console.log('Team created successfully:', JSON.stringify(responseTeam));
     res.status(201).json({ 
       message: 'Team created successfully', 
       team: responseTeam 
@@ -161,11 +117,11 @@ exports.createTeam = async (req, res) => {
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({ 
-        message: 'Validation failed: ' + validationErrors.join(', ') 
+        message: validationErrors.join(', ')
       });
     }
     
-    res.status(500).json({ message: 'Server error while creating team', error: error.message });
+    res.status(500).json({ message: error.message || 'Server error while creating team' });
   }
 };
 
@@ -174,7 +130,7 @@ exports.updateTeam = async (req, res) => {
     const { id } = req.params;
     const { teamName, captain, logo, email } = req.body;
     
-    console.log('Updating team:', id, 'with data:', req.body);
+    console.log('Updating team:', id, 'with data:', JSON.stringify(req.body));
     
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ message: 'Invalid team ID' });
@@ -185,55 +141,29 @@ exports.updateTeam = async (req, res) => {
       return res.status(404).json({ message: 'Team not found' });
     }
     
-    if (!teamName || typeof teamName !== 'string' || teamName.trim() === '') {
-      return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
-    }
+    const sanitizedData = {
+      teamName: teamName?.trim()?.replace(/\s+/g, ' ') || '',
+      captain: captain?.trim()?.replace(/\s+/g, ' ') || '',
+      logo: logo?.trim() || team.logo,
+      email: email?.trim()?.toLowerCase() || '',
+    };
     
-    if (!captain || typeof captain !== 'string' || captain.trim() === '') {
-      return res.status(400).json({ message: 'Captain name is required and must be a non-empty string' });
-    }
+    console.log('Sanitized data:', JSON.stringify(sanitizedData));
     
-    const cleanTeamName = teamName.trim().replace(/\s+/g, ' ');
-    const cleanCaptain = captain.trim().replace(/\s+/g, ' ');
-    const cleanEmail = email ? email.trim().toLowerCase() : '';
-    const cleanLogo = logo && logo.trim() !== '' ? logo.trim() : team.logo;
-    
-    // Option 2: Check for exact teamName duplicates (uncomment to enable)
-    /*
-    if (cleanTeamName !== team.teamName) {
-      const existingTeam = await Team.findOne({ 
-        teamName: cleanTeamName,
-        _id: { $ne: id }
-      });
-      if (existingTeam) {
-        return res.status(400).json({ 
-          message: `A team with the name "${cleanTeamName}" already exists.`
-        });
-      }
-    }
-    */
-    
-    if (cleanEmail && cleanEmail !== team.email) {
+    if (sanitizedData.email && sanitizedData.email !== team.email) {
       const existingEmailTeam = await Team.findOne({ 
-        email: cleanEmail,
+        email: sanitizedData.email,
         _id: { $ne: id }
       });
       if (existingEmailTeam) {
         return res.status(400).json({ 
-          message: `A team with the email "${cleanEmail}" already exists.`
+          message: `A team with the email "${sanitizedData.email}" already exists.`
         });
       }
     }
     
-    const updateData = {
-      teamName: cleanTeamName,
-      captain: cleanCaptain,
-      logo: cleanLogo
-    };
-    
-    if (cleanEmail) {
-      updateData.email = cleanEmail;
-    } else {
+    const updateData = { ...sanitizedData };
+    if (!sanitizedData.email) {
       updateData.$unset = { email: 1 };
     }
     
@@ -245,14 +175,40 @@ exports.updateTeam = async (req, res) => {
       .populate('currentLeague', 'name')
       .select('-password -__v');
     
-    console.log('Team updated successfully:', updatedTeam);
+    console.log('Team updated successfully:', JSON.stringify(updatedTeam));
     res.json({ 
       message: 'Team updated successfully', 
       team: updatedTeam 
     });
   } catch (error) {
     console.error('Error updating team:', error);
-    res.status(500).json({ message: 'Server error while updating team', error: error.message });
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack,
+      keyPattern: error.keyPattern,
+      keyValue: error.keyValue,
+      validationErrors: error.errors ? Object.values(error.errors).map(err => err.message) : undefined
+    });
+    
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || 'field';
+      const value = error.keyValue ? error.keyValue[field] : 'unknown';
+      return res.status(400).json({ 
+        message: `A team with this ${field} already exists: ${value}`,
+        code: 11000,
+        details: { keyPattern: error.keyPattern, keyValue: error.keyValue }
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ 
+        message: validationErrors.join(', ')
+      });
+    }
+    
+    res.status(500).json({ message: error.message || 'Server error while updating team' });
   }
 };
 

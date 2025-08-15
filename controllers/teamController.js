@@ -91,7 +91,7 @@ exports.createTeam = async (req, res) => {
     }
     
     // Option 2: Add manual check for exact name duplicates (uncomment to enable)
-    
+    /*
     const existingTeam = await Team.findOne({ name: cleanName });
     console.log('Checking for existing team:', cleanName, 'Found:', existingTeam);
     if (existingTeam) {
@@ -101,7 +101,7 @@ exports.createTeam = async (req, res) => {
         details: { keyPattern: { name: 1 }, keyValue: { name: cleanName } }
       });
     }
-    
+    */
     
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
     
@@ -282,5 +282,3 @@ exports.deleteTeam = async (req, res) => {
     res.status(500).json({ message: 'Server error while deleting team' });
   }
 };
-
-

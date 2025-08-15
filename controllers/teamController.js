@@ -50,25 +50,31 @@ exports.createTeam = async (req, res) => {
     const { name, captain, password, logo, email } = req.body;
     
     // Validate required fields
+    console.log('Validating fields:', { name, captain, password, email });
     if (!name || typeof name !== 'string' || name.trim() === '') {
+      console.log('Validation failed: Invalid name');
       return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
     }
     
     if (!captain || typeof captain !== 'string' || captain.trim() === '') {
+      console.log('Validation failed: Invalid captain');
       return res.status(400).json({ message: 'Captain name is required and must be a non-empty string' });
     }
     
     if (!password || typeof password !== 'string' || password.trim() === '') {
+      console.log('Validation failed: Invalid password');
       return res.status(400).json({ message: 'Password is required and must be a non-empty string' });
     }
     
     if (password.trim().length < 6) {
+      console.log('Validation failed: Password too short');
       return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
     
     if (email && email.trim() !== '') {
       const emailRegex = /^\S+@\S+\.\S+$/;
       if (!emailRegex.test(email.trim())) {
+        console.log('Validation failed: Invalid email');
         return res.status(400).json({ message: 'Please provide a valid email address' });
       }
     }
@@ -78,9 +84,12 @@ exports.createTeam = async (req, res) => {
     const cleanEmail = email ? email.trim().toLowerCase() : '';
     const cleanLogo = logo && logo.trim() !== '' ? logo.trim() : 'https://images.pexels.com/photos/274506/pexels-photo-274506.jpeg';
     
+    console.log('Sanitized data:', { cleanName, cleanCaptain, cleanEmail, cleanLogo });
+    
     // Check for existing email (if provided)
     if (cleanEmail) {
       const existingEmailTeam = await Team.findOne({ email: cleanEmail });
+      console.log('Email check:', { cleanEmail, existingEmailTeam });
       if (existingEmailTeam) {
         return res.status(400).json({ 
           message: `A team with the email "${cleanEmail}" already exists.`,
@@ -130,6 +139,11 @@ exports.createTeam = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating team:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0] || 'field';
@@ -235,22 +249,6 @@ exports.updateTeam = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating team:', error);
-    
-    if (error.code === 11000) {
-      const field = Object.keys(error.keyPattern || {})[0] || 'field';
-      const value = error.keyValue ? error.keyValue[field] : 'unknown';
-      return res.status(400).json({ 
-        message: `A team with this ${field} already exists: ${value}`
-      });
-    }
-    
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({ 
-        message: 'Validation failed: ' + validationErrors.join(', ') 
-      });
-    }
-    
     res.status(500).json({ message: 'Server error while updating team' });
   }
 };

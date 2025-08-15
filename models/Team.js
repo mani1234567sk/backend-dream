@@ -1,91 +1,24 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
-const teamSchema = new mongoose.Schema({
-  name: { 
-    type: String, 
-    required: true,
-    trim: true,
-    unique: true,
-    validate: {
-      validator: function(v) {
-        return v && v.trim().length > 0;
-      },
-      message: 'Team name cannot be empty'
-    }
-  },
-  captain: { 
-    type: String, 
-    required: true,
-    trim: true,
-    validate: {
-      validator: function(v) {
-        return v && v.trim().length > 0;
-      },
-      message: 'Captain name cannot be empty'
-    }
-  },
-  email: {
-    type: String,
-    trim: true,
-    lowercase: true,
-    unique: true,
-    sparse: true,
-    validate: {
-      validator: function(v) {
-        return !v || /^\S+@\S+\.\S+$/.test(v);
-      },
-      message: 'Please provide a valid email address'
-    }
-  },
-  password: { 
-    type: String, 
-    required: true 
-  },
-  logo: { 
-    type: String,
-    trim: true
-  },
-  players: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
-  }],
-  currentLeague: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'League' 
-  },
-  matchesPlayed: { 
-    type: Number, 
-    default: 0 
-  },
-  wins: { 
-    type: Number, 
-    default: 0 
-  },
-  createdAt: { 
-    type: Date, 
-    default: Date.now 
-  }
+const TeamSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true, trim: true },
+  captain: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  password: { type: String, required: true },
+  logo: { type: String, default: '' },
+  players: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  currentLeague: { type: mongoose.Schema.Types.ObjectId, ref: 'League', default: null },
+  matchesPlayed: { type: Number, default: 0 },
+  wins: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
 });
 
-// Define indexes
-teamSchema.index({ name: 1 }, { unique: true });
-teamSchema.index({ email: 1 }, { unique: true, sparse: true });
-
-// Normalize fields before saving
-teamSchema.pre('save', function(next) {
-  if (this.name) {
-    this.name = this.name.trim().replace(/\s+/g, ' ');
-  }
-  if (this.captain) {
-    this.captain = this.captain.trim().replace(/\s+/g, ' ');
-  }
-  if (this.email) {
-    this.email = this.email.trim().toLowerCase();
-  }
-  if (this.logo) {
-    this.logo = this.logo.trim();
+// Hash password before saving
+TeamSchema.pre('save', async function(next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 10);
   }
   next();
 });
 
-module.exports = mongoose.model('Team', teamSchema);
+module.exports = mongoose.model('Team', TeamSchema);

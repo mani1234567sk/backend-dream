@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Team = require('../models/Team');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/authMiddleware');
 const { check, validationResult } = require('express-validator');
 
 // List all teams with populated fields
@@ -121,3 +121,4 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+

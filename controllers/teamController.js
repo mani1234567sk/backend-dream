@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 exports.authenticateToken = async (req, res, next) => {
   try {
     const authHeader = req.header('Authorization');
-    console.log('Received Authorization header:', authHeader); // Debug log
+    console.log('Received Authorization header:', authHeader);
     if (!authHeader) {
       return res.status(401).json({ message: 'No authorization header provided' });
     }
@@ -27,7 +27,7 @@ exports.authenticateToken = async (req, res, next) => {
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_SECRET);
-      console.log('Decoded token:', decoded); // Debug log
+      console.log('Decoded token:', decoded);
     } catch (jwtError) {
       if (jwtError.name === 'JsonWebTokenError') {
         return res.status(401).json({ message: 'Invalid token' });
@@ -49,7 +49,7 @@ exports.authenticateToken = async (req, res, next) => {
       email: decoded.email,
       role: decoded.role || user.role
     };
-    console.log('Authenticated user:', req.user); // Debug log
+    console.log('Authenticated user:', req.user);
     next();
   } catch (error) {
     console.error('Error in authenticateToken middleware:', error);
@@ -58,7 +58,7 @@ exports.authenticateToken = async (req, res, next) => {
 };
 
 exports.isAdmin = (req, res, next) => {
-  console.log('Checking isAdmin:', req.user); // Debug log
+  console.log('Checking isAdmin:', req.user);
   if (!req.user) {
     return res.status(401).json({ message: 'Authentication required' });
   }
@@ -70,11 +70,14 @@ exports.isAdmin = (req, res, next) => {
 
 // Team Controller
 const sanitizeTeamName = (name) => {
-  if (!name || typeof name !== 'string') return '';
+  if (!name || typeof name !== 'string') {
+    console.log('Invalid team name input:', name);
+    return '';
+  }
   try {
-    const trimmed = name.trim().replace(/\s+/g, ' '); // Normalize spaces
-    const cleaned = trimmed.replace(/[^\w\s-]/g, ''); // Remove special characters
-    console.log('Sanitized team name:', { original: name, cleaned }); // Debug log
+    const trimmed = name.trim().replace(/\s+/g, ' ');
+    const cleaned = trimmed.replace(/[^\w\s-]/g, '');
+    console.log('Sanitized team name:', { original: name, cleaned });
     return cleaned;
   } catch (error) {
     console.error('Error sanitizing team name:', error);
@@ -94,7 +97,7 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    console.log('Received request body:', req.body); // Debug log
+    console.log('Received request body:', req.body);
     const { name, captain, password, logo, email } = req.body;
     
     // Validate required fields
@@ -109,11 +112,11 @@ exports.createTeam = async (req, res) => {
     }
     
     // Check for duplicate team names (case-sensitive)
-    console.log('Checking for duplicate team name:', trimmedName); // Debug log
+    console.log('Checking for duplicate team name:', trimmedName);
     const existingTeam = await Team.findOne({ name: trimmedName });
     
     if (existingTeam) {
-      console.log('Duplicate team found:', existingTeam); // Debug log
+      console.log('Duplicate team found:', existingTeam);
       return res.status(400).json({ 
         message: `A team with this name already exists: "${existingTeam.name}"` 
       });
@@ -124,6 +127,11 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: 'Please provide a valid email address' });
     }
     
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -147,7 +155,7 @@ exports.createTeam = async (req, res) => {
       return res.status(400).json({ message: `A team with this name already exists: "${req.body.name}"` });
     }
     
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -213,7 +221,7 @@ exports.updateTeam = async (req, res) => {
       console.log('MongoDB duplicate key error for name:', req.body.name);
       return res.status(400).json({ message: `A team with this name already exists: "${req.body.name}"` });
     }
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -228,6 +236,6 @@ exports.deleteTeam = async (req, res) => {
     res.json({ message: 'Team deleted successfully' });
   } catch (error) {
     console.error('Error deleting team:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

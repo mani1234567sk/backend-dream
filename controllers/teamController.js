@@ -5,11 +5,19 @@ const bcrypt = require('bcryptjs');
 // Helper function to normalize team names for comparison
 const normalizeTeamName = (name) => {
   if (!name || typeof name !== 'string') return '';
-  return name
-    .trim()
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-    .replace(/[^\w\s-]/g, '') // Remove special characters except hyphens and spaces
-    .toLowerCase();
+  
+  try {
+    // First trim and normalize spaces
+    const trimmed = name.trim().replace(/\s+/g, ' ');
+    // Then remove special characters except alphanumeric, hyphens and spaces
+    const cleaned = trimmed.replace(/[^\w\s-]/g, '');
+    // Convert to lowercase for case-insensitive comparison
+    return cleaned.toLowerCase();
+  } catch (error) {
+    console.error('Error normalizing team name:', error);
+    // Return a safe fallback
+    return name ? name.toString().toLowerCase() : '';
+  }
 };
 
 exports.getTeams = async (req, res) => {
@@ -48,13 +56,36 @@ exports.createTeam = async (req, res) => {
       normalized: normalizedNewName 
     });
     
-    // Check if normalized name already exists using direct query instead of in-memory comparison
-    const existingTeam = await Team.findOne({ name: new RegExp(`^${normalizedNewName}$`, 'i') });
+    // Check if normalized name already exists using direct query
+    // Use exact match on normalized name instead of regex to avoid pattern issues
+    const existingTeams = await Team.find({});
     
-    if (existingTeam) {
-      console.log('Duplicate team found:', existingTeam.name);
+    // Log all existing team names and their normalized versions for debugging
+    console.log('All existing teams:');
+    existingTeams.forEach(team => {
+      const normalizedExistingName = normalizeTeamName(team.name);
+      console.log({
+        id: team._id,
+        originalName: team.name,
+        normalizedName: normalizedExistingName,
+        matches: normalizedExistingName === normalizedNewName
+      });
+    });
+    
+    const duplicateTeam = existingTeams.find(team => {
+      // Skip comparison if either name is empty after normalization
+      if (!team.name || !normalizedNewName) return false;
+      
+      const normalizedExistingName = normalizeTeamName(team.name);
+      // Only consider it a duplicate if both normalized names are non-empty and match
+      return normalizedExistingName && normalizedNewName && 
+             normalizedExistingName === normalizedNewName;
+    });
+    
+    if (duplicateTeam) {
+      console.log('Duplicate team found:', duplicateTeam.name);
       return res.status(400).json({ 
-        message: `A team with this name already exists: "${existingTeam.name}"` 
+        message: `A team with this name already exists: "${duplicateTeam.name}"` 
       });
     }
     
@@ -106,11 +137,37 @@ exports.updateTeam = async (req, res) => {
       return res.status(400).json({ message: 'Name and captain cannot be empty' });
     }
     
-    // Check for duplicate team names (excluding current team) using direct query
+    // Check for duplicate team names (excluding current team)
     const normalizedNewName = normalizeTeamName(trimmedName);
-    const duplicateTeam = await Team.findOne({
-      _id: { $ne: id },
-      name: new RegExp(`^${normalizedNewName}$`, 'i')
+    console.log('Update - Checking for duplicate team name:', { 
+      id: id,
+      original: name, 
+      trimmed: trimmedName, 
+      normalized: normalizedNewName 
+    });
+    
+    const existingTeams = await Team.find({ _id: { $ne: id } });
+    
+    // Log all existing team names and their normalized versions for debugging
+    console.log('Update - All existing teams (excluding current):');
+    existingTeams.forEach(team => {
+      const normalizedExistingName = normalizeTeamName(team.name);
+      console.log({
+        id: team._id,
+        originalName: team.name,
+        normalizedName: normalizedExistingName,
+        matches: normalizedExistingName === normalizedNewName
+      });
+    });
+    
+    const duplicateTeam = existingTeams.find(team => {
+      // Skip comparison if either name is empty after normalization
+      if (!team.name || !normalizedNewName) return false;
+      
+      const normalizedExistingName = normalizeTeamName(team.name);
+      // Only consider it a duplicate if both normalized names are non-empty and match
+      return normalizedExistingName && normalizedNewName && 
+             normalizedExistingName === normalizedNewName;
     });
     
     if (duplicateTeam) {

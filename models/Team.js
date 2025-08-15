@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const teamSchema = new mongoose.Schema({
-  name: { 
+  teamName: { 
     type: String, 
     required: true, 
     trim: true,
@@ -69,3 +69,4 @@ const teamSchema = new mongoose.Schema({
 teamSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Team', teamSchema);
+

@@ -15,29 +15,42 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    console.log('Creating team with data:', req.body);
-    console.log('User role:', req.user?.role);
+    console.log('Creating team with request body:', req.body);
     
     const { name, captain, password, logo } = req.body;
     
     // Validate required fields
-    if (!name || !captain || !password) {
-      return res.status(400).json({ message: 'Name, captain, and password are required' });
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      return res.status(400).json({ message: 'Team name is required and must be a non-empty string' });
     }
     
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    if (!captain || typeof captain !== 'string' || captain.trim() === '') {
+      return res.status(400).json({ message: 'Captain name is required and must be a non-empty string' });
     }
     
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ message: 'Password is required and must be at least 6 characters long' });
+    }
+    
+    // Check if team name already exists
+    const existingTeam = await Team.findOne({ name: name.trim() });
+    if (existingTeam) {
+      return res.status(400).json({ message: 'A team with this name already exists' });
+    }
+    
+    console.log('Hashing password...');
     const hashedPassword = await bcrypt.hash(password, 10);
+    console.log('Password hashed successfully');
 
     const team = await Team.create({
-      name,
-      captain,
+      name: name.trim(),
+      captain: captain.trim(),
       password: hashedPassword,
-      logo: logo || ''
+      logo: logo?.trim() || ''
     });
 
+    console.log('Team created successfully:', team._id);
+    
     // Return team without password
     const teamResponse = {
       _id: team._id,
@@ -50,13 +63,20 @@ exports.createTeam = async (req, res) => {
       wins: team.wins,
       createdAt: team.createdAt
     };
-
-    res.status(201).json({ message: 'Team created successfully', team: teamResponse });
+    
+    res.status(201).json({ message: 'Team created successfully', team });
   } catch (error) {
     console.error('Error creating team:', error);
-    if (error.code === 11000) {
-      return res.status(400).json({ message: 'Team name already exists' });
+    
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({ message: 'Validation failed: ' + validationErrors.join(', ') });
     }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'A team with this name already exists' });
+    }
+    
     res.status(500).json({ message: 'Server error' });
   }
 };

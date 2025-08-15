@@ -9,7 +9,7 @@ const normalizeTeamName = (name) => {
   try {
     // First trim and normalize spaces
     const trimmed = name.trim().replace(/\s+/g, ' ');
-    // Then remove special characters except alphanumeric, hyphens and spaces
+    // Then remove special characters except alphanumeric, hyphens, and spaces
     const cleaned = trimmed.replace(/[^\w\s-]/g, '');
     // Convert to lowercase for case-insensitive comparison
     return cleaned.toLowerCase();
@@ -32,16 +32,15 @@ exports.getTeams = async (req, res) => {
 
 exports.createTeam = async (req, res) => {
   try {
-    // Extract fields from request body
-    const { teamName, captain, password, logo, email } = req.body;
+    const { name, captain, password, logo, email } = req.body;
     
     // Validate required fields
-    if (!teamName || !captain || !password) {
+    if (!name || !captain || !password) {
       return res.status(400).json({ message: 'Team name, captain, and password are required' });
     }
     
     // Sanitize and validate team name
-    const trimmedName = teamName.trim();
+    const trimmedName = name.trim();
     if (!trimmedName) {
       return res.status(400).json({ message: 'Team name cannot be empty' });
     }
@@ -49,18 +48,13 @@ exports.createTeam = async (req, res) => {
     // Check for duplicate team names with proper normalization
     const normalizedNewName = normalizeTeamName(trimmedName);
     console.log('Checking for duplicate team name:', { 
-      original: teamName, 
+      original: name, 
       trimmed: trimmedName, 
       normalized: normalizedNewName 
     });
     
-    // Note: The frontend sends 'teamName' but we store it as 'name' in the Team model
-    
-    // Check if normalized name already exists using direct query
-    // Use exact match on normalized name instead of regex to avoid pattern issues
     const existingTeams = await Team.find({});
     
-    // Log all existing team names and their normalized versions for debugging
     console.log('All existing teams:');
     existingTeams.forEach(team => {
       const normalizedExistingName = normalizeTeamName(team.name);
@@ -73,11 +67,9 @@ exports.createTeam = async (req, res) => {
     });
     
     const duplicateTeam = existingTeams.find(team => {
-      // Skip comparison if either name is empty after normalization
       if (!team.name || !normalizedNewName) return false;
       
       const normalizedExistingName = normalizeTeamName(team.name);
-      // Only consider it a duplicate if both normalized names are non-empty and match
       return normalizedExistingName && normalizedNewName && 
              normalizedExistingName === normalizedNewName;
     });
@@ -99,7 +91,7 @@ exports.createTeam = async (req, res) => {
 
     // Create team with sanitized data
     const team = await Team.create({
-      name: trimmedName, // Use the trimmed name for the name field
+      name: trimmedName,
       captain: captain.trim(),
       email: email ? email.trim().toLowerCase() : undefined,
       password: hashedPassword,
@@ -111,7 +103,7 @@ exports.createTeam = async (req, res) => {
   } catch (error) {
     console.error('Error creating team:', error);
     
-    // Handle MongoDB duplicate key error (E11000) as backup
+    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
       return res.status(400).json({ message: 'A team with this name already exists' });
     }
@@ -123,14 +115,14 @@ exports.createTeam = async (req, res) => {
 exports.updateTeam = async (req, res) => {
   try {
     const { id } = req.params;
-    const { teamName, captain, logo, email } = req.body;
+    const { name, captain, logo, email } = req.body;
     
     // Validate and sanitize input data
-    if (!teamName || !captain) {
-      return res.status(400).json({ message: 'Team name and captain are required' });
+    if (!name || !captain) {
+      return res.status(400).json({ message: 'Name and captain are required' });
     }
     
-    const trimmedName = teamName.trim();
+    const trimmedName = name.trim();
     const trimmedCaptain = captain.trim();
     
     if (!trimmedName || !trimmedCaptain) {
@@ -141,16 +133,13 @@ exports.updateTeam = async (req, res) => {
     const normalizedNewName = normalizeTeamName(trimmedName);
     console.log('Update - Checking for duplicate team name:', { 
       id: id,
-      original: teamName, 
+      original: name, 
       trimmed: trimmedName, 
       normalized: normalizedNewName 
     });
     
-    // Note: The frontend sends 'teamName' but we store it as 'name' in the Team model
-    
     const existingTeams = await Team.find({ _id: { $ne: id } });
     
-    // Log all existing team names and their normalized versions for debugging
     console.log('Update - All existing teams (excluding current):');
     existingTeams.forEach(team => {
       const normalizedExistingName = normalizeTeamName(team.name);
@@ -163,11 +152,9 @@ exports.updateTeam = async (req, res) => {
     });
     
     const duplicateTeam = existingTeams.find(team => {
-      // Skip comparison if either name is empty after normalization
       if (!team.name || !normalizedNewName) return false;
       
       const normalizedExistingName = normalizeTeamName(team.name);
-      // Only consider it a duplicate if both normalized names are non-empty and match
       return normalizedExistingName && normalizedNewName && 
              normalizedExistingName === normalizedNewName;
     });
@@ -209,7 +196,7 @@ exports.updateTeam = async (req, res) => {
   } catch (error) {
     console.error('Error updating team:', error);
     
-    // Handle MongoDB duplicate key error as backup
+    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
       return res.status(400).json({ message: 'A team with this name already exists' });
     }

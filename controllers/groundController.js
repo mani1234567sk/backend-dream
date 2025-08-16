@@ -6,7 +6,7 @@ const Match = require('../models/Match');
 
 exports.getGrounds = async (req, res) => {
   try {
-    const grounds = await Ground.find().select('-__v'); // Exclude MongoDB __v field
+    const grounds = await Ground.find().select('-__v'); 
     res.json(grounds);
   } catch (error) {
     console.error('Error fetching grounds:', error);
@@ -216,3 +216,4 @@ exports.createReview = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+

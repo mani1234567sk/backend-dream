@@ -117,7 +117,8 @@ exports.login = async (req, res) => {
       height: user.height,
       position: user.position,
       team: user.team,
-      profileImage: user.profileImage
+      profileImage: user.profileImage,
+      isCaptain: user.team ? user.team.captain === user.name : false
     };
 
     res.json({ token, user: userData });

@@ -153,13 +153,6 @@ exports.joinLeague = async (req, res) => {
       return res.status(400).json({ message: 'You must be part of a team to join a league' });
     }
 
-    // Allow both team role users and team captains to join leagues
-    const isTeamMember = user.role === 'team';
-    const isTeamCaptain = user.role === 'customer' && user.team.captain === user.name;
-    
-    if (!isTeamMember && !isTeamCaptain) {
-      return res.status(403).json({ message: 'Only team members or team captains can join leagues' });
-    }
     const league = await League.findById(id);
     if (!league) {
       return res.status(404).json({ message: 'League not found' });

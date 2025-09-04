@@ -59,6 +59,10 @@ const teamSchema = new mongoose.Schema({
     type: Number, 
     default: 0 
   },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   createdAt: { 
     type: Date, 
     default: Date.now 
@@ -67,6 +71,15 @@ const teamSchema = new mongoose.Schema({
 
 // Keep email index as sparse and unique (for optional email field)
 teamSchema.index({ email: 1 }, { unique: true, sparse: true });
+
+// Virtual to check if team can join leagues
+teamSchema.virtual('canJoinLeague').get(function() {
+  return this.isActive && !this.currentLeague;
+});
+
+// Ensure virtual fields are serialized
+teamSchema.set('toJSON', { virtuals: true });
+teamSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Team', teamSchema);
 

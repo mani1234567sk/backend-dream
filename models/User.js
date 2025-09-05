@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
   height: String,
   position: String,
   team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
+  teamName: String, // Store team name for easy access
   profileImage: String,
   createdAt: { type: Date, default: Date.now }
 });

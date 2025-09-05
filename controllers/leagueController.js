@@ -178,16 +178,13 @@ exports.joinLeague = async (req, res) => {
       return res.status(400).json({ message: 'You must be part of a team to join a league' });
     }
 
-    // Check if user is the team captain
-    const isCaptain = user.team.captain === user.name;
-    if (!isCaptain) {
-      return res.status(403).json({ message: 'Only the team captain can join leagues on behalf of the team' });
-    }
+    // Any team member can join a league on behalf of their team
     const league = await League.findById(id);
     if (!league) {
       return res.status(404).json({ message: 'League not found' });
     }
 
+    // Check if team is already in this league
     if (league.teams.includes(user.team._id)) {
       return res.status(400).json({ message: 'Team already in this league' });
     }
@@ -200,10 +197,13 @@ exports.joinLeague = async (req, res) => {
     if (user.team.currentLeague) {
       return res.status(400).json({ message: 'Team is already participating in another league' });
     }
+    
+    // Add team to league
     await League.findByIdAndUpdate(id, {
       $push: { teams: user.team._id }
     });
 
+    // Update team's current league
     await Team.findByIdAndUpdate(user.team._id, {
       currentLeague: id
     });

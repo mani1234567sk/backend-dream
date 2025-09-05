@@ -59,6 +59,7 @@ exports.updateLeague = async (req, res) => {
   }
 };
 
+
 exports.getLeagues = async (req, res) => {
   try {
     const leagues = await League.find()
@@ -67,29 +68,6 @@ exports.getLeagues = async (req, res) => {
     res.json(leagues);
   } catch (error) {
     console.error('Error fetching leagues:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-exports.getLeagueById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid league ID' });
-    }
-
-    const league = await League.findById(id)
-      .populate('teams', 'name')
-      .select('-__v');
-
-    if (!league) {
-      return res.status(404).json({ message: 'League not found' });
-    }
-
-    res.json(league);
-  } catch (error) {
-    console.error('Error fetching league by ID:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -167,7 +145,10 @@ exports.joinLeague = async (req, res) => {
       return res.status(400).json({ message: 'Invalid league ID' });
     }
 
-    const user = await User.findById(userId).populate('team');
+    const user = await User.findById(userId).populate({
+      path: 'team',
+      select: 'teamName captain players currentLeague'
+    });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -175,6 +156,11 @@ exports.joinLeague = async (req, res) => {
       return res.status(400).json({ message: 'You must be part of a team to join a league' });
     }
 
+    // Check if user is the team captain
+    const isCaptain = user.team.captain === user.name;
+    if (!isCaptain) {
+      return res.status(403).json({ message: 'Only the team captain can join leagues on behalf of the team' });
+    }
     const league = await League.findById(id);
     if (!league) {
       return res.status(404).json({ message: 'League not found' });
@@ -188,12 +174,10 @@ exports.joinLeague = async (req, res) => {
       return res.status(400).json({ message: 'Cannot join a completed league' });
     }
 
-    // Check if the team is already in another league
-    const team = await Team.findById(user.team._id);
-    if (team.currentLeague && team.currentLeague.toString() !== id) {
+    // Check if team is already in another league
+    if (user.team.currentLeague) {
       return res.status(400).json({ message: 'Team is already participating in another league' });
     }
-
     await League.findByIdAndUpdate(id, {
       $push: { teams: user.team._id }
     });
@@ -202,7 +186,7 @@ exports.joinLeague = async (req, res) => {
       currentLeague: id
     });
 
-    res.json({ message: 'Successfully joined league' });
+    res.json({ message: 'Team successfully joined league' });
   } catch (error) {
     console.error('Error joining league:', error);
     res.status(500).json({ message: 'Server error' });

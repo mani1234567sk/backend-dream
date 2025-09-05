@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, height, position, teamId, teamPassword, profileImage } = req.body;
+    const { name, email, password, height, position, teamId, teamPassword, profileImage, role } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -37,7 +37,8 @@ exports.register = async (req, res) => {
       password: hashedPassword,
       height,
       position,
-      profileImage: profileImage || null
+      profileImage: profileImage || null,
+      role: role || 'customer'
     };
 
     if (teamId && teamPassword) {
@@ -52,6 +53,8 @@ exports.register = async (req, res) => {
       }
 
       userData.team = teamId;
+      userData.role = 'team'; // Users who join via team password become team members
+      userData.teamName = team.teamName; // Store team name in user profile
     }
 
     const user = await User.create(userData);
@@ -76,7 +79,9 @@ exports.register = async (req, res) => {
       message: 'User created successfully',
       user: {
         email: user.email,
-        name: user.name
+        name: user.name,
+        role: user.role,
+        team: teamId ? { _id: teamId } : null
       }
     });
   } catch (error) {
@@ -93,7 +98,10 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).populate('team');
+    const user = await User.findOne({ email }).populate({
+      path: 'team',
+      select: 'teamName captain players currentLeague'
+    });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
@@ -109,6 +117,11 @@ exports.login = async (req, res) => {
       { expiresIn: '24h' }
     );
 
+    // Check if user is team captain
+    let isCaptain = false;
+    if (user.team) {
+      isCaptain = user.team.captain === user.name;
+    }
     const userData = {
       _id: user._id,
       name: user.name,
@@ -118,7 +131,7 @@ exports.login = async (req, res) => {
       position: user.position,
       team: user.team,
       profileImage: user.profileImage,
-      isCaptain: user.team ? user.team.captain === user.name : false
+      isCaptain: isCaptain
     };
 
     res.json({ token, user: userData });

@@ -59,7 +59,6 @@ exports.updateLeague = async (req, res) => {
   }
 };
 
-
 exports.getLeagues = async (req, res) => {
   try {
     const leagues = await League.find()
@@ -68,6 +67,29 @@ exports.getLeagues = async (req, res) => {
     res.json(leagues);
   } catch (error) {
     console.error('Error fetching leagues:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+exports.getLeagueById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid league ID' });
+    }
+
+    const league = await League.findById(id)
+      .populate('teams', 'name')
+      .select('-__v');
+
+    if (!league) {
+      return res.status(404).json({ message: 'League not found' });
+    }
+
+    res.json(league);
+  } catch (error) {
+    console.error('Error fetching league by ID:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
